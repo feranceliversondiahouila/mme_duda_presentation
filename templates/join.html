@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Terminal Invité - Scan Biométrique</title>
+    <style>
+        body { background: #05070d; color: #00ff66; font-family: 'Courier New', Courier, monospace; padding: 20px; text-align: center; margin: 0; overflow: hidden; }
+        .card { border: 1px solid #00ff66; padding: 20px; background: rgba(0,255,102,0.05); box-shadow: 0 0 15px rgba(0, 255, 102, 0.2); }
+        input[type="text"], button { width: 90%; padding: 12px; margin-top: 15px; background: #0b1320; color: #00ff66; border: 1px dashed #00ff66; font-size: 16px; box-sizing: border-box; }
+        button { background: #00ff66; color: #05070d; font-weight: bold; cursor: pointer; border: none; }
+        button:active { background: #00ccff; }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+        .checkbox-container { display: flex; align-items: center; justify-content: left; gap: 10px; margin-top: 15px; padding-left: 5%; color: #aaffaa; }
+        
+        /* Scanner Biométrique */
+        #scanner-container { display: none; margin-top: 15px; flex-direction: column; align-items: center; }
+        #camera-feed { width: 100%; max-width: 300px; border: 2px solid #00ccff; border-radius: 10px; transform: scaleX(-1); }
+        #scan-instruction { font-size: 18px; font-weight: bold; color: #00ccff; margin: 15px 0; text-shadow: 0 0 5px #00ccff; animation: blink 1.5s infinite; }
+        .progress-bar { width: 100%; height: 10px; background: #222; margin-top: 10px; border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #00ccff; width: 0%; transition: width 0.3s; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Interface Joueur Standard (Joystick) */
+        #gamepad-zone { display: none; margin-top: 20px; height: 300px; position: relative; }
+        #joystick-container { width: 100%; height: 100%; position: absolute; }
+        
+        /* Bouton "Voir plus" (apparaît près d'un équipement) + fenêtre d'explication */
+        #btn-voir-plus { display: none; position: fixed; bottom: 20px; left: 5%; width: 90%; margin: 0; z-index: 500; background: #ffcc00; color: #000; animation: pulse-poi 1.2s infinite; }
+        @keyframes pulse-poi { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); } 50% { box-shadow: 0 0 0 12px rgba(255, 204, 0, 0); } }
+        #modal-equipement { display: none; position: fixed; top: 10%; left: 5%; width: 90%; max-height: 80vh; overflow-y: auto; box-sizing: border-box; background: #001122; border: 2px solid #00ccff; box-shadow: 0 0 25px rgba(0, 204, 255, 0.5); padding: 20px; text-align: left; z-index: 1000; }
+        #modal-equipement h3 { color: #00ccff; margin-top: 0; }
+        #modal-equipement p { color: #fff; font-size: 14px; line-height: 1.5; }
+        #btn-close-modal { float: right; width: 40px; margin: 0; padding: 6px 0; background: #ff3333; color: #fff; }
+
+        /* Mini-Terminal Cyberpunk (suivi de la présentation) */
+        #mobile-terminal { display: none; margin-top: 20px; background: #020408; border: 1px solid #00ccff; padding: 10px; height: 220px; overflow-y: auto; text-align: left; font-size: 13px; box-shadow: inset 0 0 10px rgba(0, 204, 255, 0.2); }
+        .terminal-line { margin: 8px 0; word-wrap: break-word; color: #aaffaa; }
+        .terminal-prefix { color: #ff3333; }
+        .terminal-cursor { color: #00ccff; animation: blink 0.8s infinite; }
+
+        /* Interface Admin (Télécommande) */
+        #admin-dashboard { display: none; margin-top: 20px; }
+        .admin-btn { background: #0b1320; color: #ff3333; border: 1px solid #ff3333; font-size: 14px; padding: 15px; margin-bottom: 15px; }
+        .admin-btn:active { background: #ff3333; color: #fff; }
+        .admin-header { color: #ff3333; text-shadow: 0 0 10px #ff3333; margin-bottom: 20px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="card" id="login-card">
+        <h2>>> TERMINAL INVITÉ</h2>
+        
+        <input type="text" id="pseudo" placeholder="Entrez votre Pseudo" required>
+        
+        <div class="checkbox-container">
+            <input type="checkbox" id="use-default" value="true">
+            <label for="use-default">Skin par défaut (Anonyme)</label>
+        </div>
+
+        <div id="scanner-container">
+            <video id="camera-feed" autoplay playsinline></video>
+            <div id="scan-instruction">1/5 : REGARDEZ DE FACE</div>
+            <button id="capture-btn">📸 CAPTURER</button>
+            <div class="progress-bar"><div class="progress-fill" id="scan-progress"></div></div>
+            <canvas id="canvas-hidden" style="display: none;"></canvas>
+        </div>
+
+        <button id="start-btn">DÉMARRER LE SCAN</button>
+    </div>
+
+    <!-- Écran global après connexion -->
+    <h3 id="welcome-msg" style="display: none; margin-top: 20px;"></h3>
+
+    <!-- ZONE JOUER CLASSIQUE -->
+    <div id="gamepad-zone">
+        <p style="color: #aaffaa; font-size: 12px;">Utilisez le joystick pour vous déplacer.</p>
+        <div id="joystick-container"></div>
+    </div>
+
+    <!-- Bouton qui apparaît quand l'avatar est près d'un équipement -->
+    <button id="btn-voir-plus">🔍 VOIR PLUS</button>
+
+    <!-- Fenêtre d'explication de l'équipement -->
+    <div id="modal-equipement">
+        <button id="btn-close-modal" aria-label="Fermer">X</button>
+        <h3 id="modal-title"></h3>
+        <p id="modal-text"></p>
+    </div>
+
+    <!-- MINI-TERMINAL DE SUIVI (joueur normal) : les messages s'écrivent tout seuls -->
+    <div id="mobile-terminal">
+        <div id="terminal-lines"></div>
+    </div>
+
+    <!-- ZONE ADMIN (TÉLÉCOMMANDE) -->
+    <div id="admin-dashboard">
+        <h3 class="admin-header">>> PANNEAU DE CONTRÔLE ADMIN <<</h3>
+        <button id="btn-hide-qr" class="admin-btn">👁️ 0. CACHER LE QR (VOIR LOBBY)</button>
+        <button id="btn-show-qr" class="admin-btn" style="display: none;">📲 0. AFFICHER LE QR</button>
+        <button id="btn-start-cinematic" class="admin-btn">🎬 1. LANCER LA CINÉMATIQUE (AUTO-SIT)</button>
+        <button id="btn-next-point" class="admin-btn">▶️ 2. ALLER AU POINT SUIVANT</button>
+        <button id="btn-show-info" class="admin-btn">ℹ️ 3. AFFICHER L'EXPLICATION</button>
+        <button id="btn-validate" class="admin-btn">✅ 4. VALIDER LE NIVEAU</button>
+        <button id="btn-end" class="admin-btn">🔄 5. FIN (RETOUR À L'IUT)</button>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        const pseudoInput = document.getElementById('pseudo');
+        const useDefaultCheckbox = document.getElementById('use-default');
+        const startBtn = document.getElementById('start-btn');
+        
+        const scannerContainer = document.getElementById('scanner-container');
+        const cameraFeed = document.getElementById('camera-feed');
+        const captureBtn = document.getElementById('capture-btn');
+        const instructionTxt = document.getElementById('scan-instruction');
+        const progressBar = document.getElementById('scan-progress');
+        const canvas = document.getElementById('canvas-hidden');
+        const ctx = canvas.getContext('2d');
+        
+        const loginCard = document.getElementById('login-card');
+        const gamepadZone = document.getElementById('gamepad-zone');
+        const adminDashboard = document.getElementById('admin-dashboard');
+        const welcomeMsg = document.getElementById('welcome-msg');
+        const mobileTerminal = document.getElementById('mobile-terminal');
+        const terminalLines = document.getElementById('terminal-lines');
+        let loggedIn = false;
+        let isAdmin = false;
+        let myPseudo = null;
+        let currentPoi = null; // Équipement près duquel on se trouve : { poi, title, description }
+
+        const scanSteps = [
+            "1/5 : REGARDEZ DE FACE",
+            "2/5 : TOURNEZ À GAUCHE",
+            "3/5 : TOURNEZ À DROITE",
+            "4/5 : REGARDEZ EN HAUT",
+            "5/5 : REGARDEZ EN BAS"
+        ];
+        let currentStep = 0;
+        let capturedImages = [];
+        let stream = null;
+
+        useDefaultCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                startBtn.textContent = "REJOINDRE LA CLASSE";
+                scannerContainer.style.display = 'none';
+                stopCamera();
+            } else {
+                startBtn.textContent = "DÉMARRER LE SCAN";
+            }
+        });
+
+        startBtn.addEventListener('click', async () => {
+            if (!pseudoInput.value) return alert("Veuillez entrer un pseudo.");
+            
+            if (useDefaultCheckbox.checked) {
+                sendToServer(true, []);
+            } else {
+                startBtn.style.display = 'none';
+                scannerContainer.style.display = 'flex';
+                startCamera();
+            }
+        });
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                cameraFeed.srcObject = stream;
+            } catch (err) {
+                alert("Erreur Caméra.");
+            }
+        }
+
+        function stopCamera() {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+        }
+
+        captureBtn.addEventListener('click', () => {
+            canvas.width = cameraFeed.videoWidth;
+            canvas.height = cameraFeed.videoHeight;
+            ctx.drawImage(cameraFeed, 0, 0, canvas.width, canvas.height);
+            
+            const imgData = canvas.toDataURL('image/jpeg', 0.8);
+            capturedImages.push(imgData);
+            
+            currentStep++;
+            progressBar.style.width = (currentStep * 20) + "%";
+
+            if (currentStep < 5) {
+                instructionTxt.textContent = scanSteps[currentStep];
+            } else {
+                instructionTxt.textContent = ">> GÉNÉRATION DU MODÈLE 3D...";
+                captureBtn.disabled = true;
+                stopCamera();
+                sendToServer(false, capturedImages);
+            }
+        });
+
+        async function sendToServer(isDefault, images) {
+            const formData = new FormData();
+            const pseudo = pseudoInput.value;
+            formData.append('pseudo', pseudo);
+            formData.append('use_default', isDefault);
+            
+            if (!isDefault) {
+                formData.append('img_front', images[0]);
+                formData.append('img_left', images[1]);
+                formData.append('img_right', images[2]);
+                formData.append('img_up', images[3]);
+                formData.append('img_down', images[4]);
+            }
+
+            const res = await fetch('/api/spawn', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (data.status === 'ok') {
+                loggedIn = true;
+                isAdmin = !!data.player.is_admin;
+                loginCard.style.display = 'none';
+                welcomeMsg.style.display = 'block';
+                welcomeMsg.textContent = "Connecté : " + data.player.pseudo;
+
+                // C'EST ICI QUE LA MAGIE OPÈRE : SÉPARATION ADMIN / JOUEUR NORMAL
+                if (data.player.is_admin) {
+                    // C'est un Admin -> On affiche la télécommande
+                    adminDashboard.style.display = 'block';
+                    initAdminControls(pseudo);
+                } else {
+                    // C'est un Joueur normal -> On affiche le Joystick
+                    gamepadZone.style.display = 'block';
+                    initJoystick(pseudo);
+                }
+
+                // Le serveur doit savoir quel téléphone est ce pseudo (pour le bouton "Voir plus")
+                myPseudo = pseudo;
+                socket.emit('register_player', { pseudo: pseudo });
+
+                // Récupère les étapes déjà passées (si on arrive en cours de présentation)
+                socket.emit('request_progress');
+            }
+        }
+
+        // --- COMMANDES DU JOUEUR (NORMAL) ---
+        function initJoystick(pseudo) {
+            const joystick = nipplejs.create({
+                zone: document.getElementById('joystick-container'),
+                mode: 'static',
+                position: { left: '50%', top: '60%' },
+                color: '#00ff66'
+            });
+
+            // nipplejs n'émet "move" que si le doigt bouge : on renvoie donc la position
+            // toutes les 50 ms tant que le joystick est tenu, sinon l'avatar s'arrête doigt immobile.
+            let vec = { x: 0, y: 0 };
+            let sendTimer = null;
+
+            joystick.on('move', (evt, data) => {
+                vec.x = Math.cos(data.angle.radian) * (data.distance / 50);
+                vec.y = Math.sin(data.angle.radian) * (data.distance / 50);
+                if (!sendTimer) {
+                    sendTimer = setInterval(() => {
+                        socket.emit('move_joystick', { pseudo: pseudo, x: vec.x, y: vec.y });
+                    }, 50);
+                }
+            });
+
+            joystick.on('end', () => {
+                clearInterval(sendTimer);
+                sendTimer = null;
+                vec = { x: 0, y: 0 };
+                socket.emit('move_joystick', { pseudo: pseudo, x: 0, y: 0 });
+            });
+        }
+
+        // --- ÉQUIPEMENTS : BOUTON "VOIR PLUS" + FENÊTRE D'EXPLICATION ---
+        const btnVoirPlus = document.getElementById('btn-voir-plus');
+        const modalEquipement = document.getElementById('modal-equipement');
+
+        function closeModal() {
+            modalEquipement.style.display = 'none';
+        }
+
+        // Le PC a détecté que mon avatar est près (ou loin) d'un équipement
+        socket.on('poi_update', (data) => {
+            if (data.action === 'show') {
+                currentPoi = data;
+                btnVoirPlus.textContent = '🔍 VOIR PLUS : ' + data.title;
+                btnVoirPlus.style.display = 'block';
+            } else {
+                currentPoi = null;
+                btnVoirPlus.style.display = 'none';
+            }
+        });
+
+        btnVoirPlus.addEventListener('click', () => {
+            if (!currentPoi) return;
+            document.getElementById('modal-title').textContent = '>> ' + currentPoi.title;
+            document.getElementById('modal-text').textContent = currentPoi.description;
+            modalEquipement.style.display = 'block';
+            // Affiche aussi la fenêtre sur le vidéoprojecteur
+            socket.emit('open_pc_modal', { pseudo: myPseudo, poi: currentPoi.poi });
+        });
+
+        document.getElementById('btn-close-modal').addEventListener('click', () => {
+            closeModal();
+            socket.emit('close_pc_modal', { pseudo: myPseudo, source: 'phone' });
+        });
+
+        // Le PC a fermé la fenêtre de son côté
+        socket.on('poi_close', closeModal);
+
+        // Une fois la présentation lancée, plus d'exploration : on range tout
+        function hidePoiUi() {
+            currentPoi = null;
+            btnVoirPlus.style.display = 'none';
+            closeModal();
+        }
+
+        // --- SUIVI DE LA PRÉSENTATION : MINI-TERMINAL "MACHINE À ÉCRIRE" ---
+        const progressMessages = {
+            cinematic:   "Initialisation du routage... Les données transitent du PC vers le Data Center.",
+            datacenter:  "Connexion établie. Nous sommes actuellement arrivés au niveau du Data Center.",
+            explication: "Analyse du nœud en cours... Décodage des informations.",
+            victory:     ">>> SECTEUR SÉCURISÉ ET VALIDÉ AVEC SUCCÈS <<<"
+        };
+        const TYPE_SPEED = 35; // ms par caractère
+
+        const typeQueue = [];   // Messages en attente (évite que deux lignes s'écrivent en même temps)
+        let isTyping = false;
+        let typingToken = 0;    // Permet d'annuler une frappe en cours lors d'un reset
+
+        function createTerminalLine() {
+            // Retire le curseur des anciennes lignes
+            terminalLines.querySelectorAll('.terminal-cursor').forEach(c => c.remove());
+
+            const p = document.createElement('p');
+            p.className = 'terminal-line';
+
+            const prefix = document.createElement('span');
+            prefix.className = 'terminal-prefix';
+            prefix.textContent = 'root@netrunner:~# ';
+
+            // Texte ajouté via un noeud texte : jamais interprété comme du HTML (">>>" "<<<" OK)
+            const textNode = document.createTextNode('');
+
+            const cursor = document.createElement('span');
+            cursor.className = 'terminal-cursor';
+            cursor.textContent = '█';
+
+            p.append(prefix, textNode, cursor);
+            terminalLines.appendChild(p);
+            return { p, textNode, cursor };
+        }
+
+        function scrollTerminal() {
+            mobileTerminal.scrollTop = mobileTerminal.scrollHeight;
+        }
+
+        function processQueue() {
+            if (isTyping || typeQueue.length === 0) return;
+            const { text, instant } = typeQueue.shift();
+            const line = createTerminalLine();
+
+            if (instant) {
+                line.textNode.data = text;
+                line.cursor.remove();
+                scrollTerminal();
+                processQueue();
+                return;
+            }
+
+            isTyping = true;
+            const token = typingToken;
+            let i = 0;
+            (function type() {
+                if (token !== typingToken) return; // Annulé par un reset
+                if (i < text.length) {
+                    line.textNode.data += text.charAt(i++);
+                    scrollTerminal();
+                    setTimeout(type, TYPE_SPEED);
+                } else {
+                    isTyping = false;
+                    processQueue();
+                }
+            })();
+        }
+
+        function enqueueMessage(text, instant = false) {
+            typeQueue.push({ text, instant });
+            processQueue();
+        }
+
+        function showTerminal() {
+            gamepadZone.style.display = 'none';      // Plus de déplacement une fois la présentation lancée
+            hidePoiUi();
+            mobileTerminal.style.display = 'block';
+        }
+
+        function resetTerminal() {
+            typingToken++;
+            typeQueue.length = 0;
+            isTyping = false;
+            terminalLines.innerHTML = '';
+            mobileTerminal.style.display = 'none';
+        }
+
+        // Nouvelle étape envoyée par le PC
+        socket.on('sync_progress', (data) => {
+            if (!loggedIn) return;
+
+            if (data.step === 'end') {
+                resetTerminal();
+                if (isAdmin) {
+                    // Le PC revient au lobby avec le QR affiché : on remet la télécommande dans le même état
+                    document.getElementById('btn-show-qr').style.display = 'none';
+                    document.getElementById('btn-hide-qr').style.display = 'block';
+                } else {
+                    gamepadZone.style.display = 'block'; // Le joystick revient
+                }
+                return;
+            }
+
+            if (isAdmin) return; // L'admin garde sa télécommande
+            showTerminal();
+            if (progressMessages[data.step]) enqueueMessage(progressMessages[data.step]);
+        });
+
+        // Historique reçu à la connexion ou à la reconnexion : affiché instantanément
+        socket.on('progress_history', (data) => {
+            if (isAdmin || !data.steps.length) return;
+            resetTerminal();
+            showTerminal();
+            data.steps.forEach(step => {
+                if (progressMessages[step]) enqueueMessage(progressMessages[step], true);
+            });
+        });
+
+        // Si le téléphone perd puis retrouve la connexion, on resynchronise
+        socket.on('connect', () => {
+            if (loggedIn) {
+                socket.emit('register_player', { pseudo: myPseudo }); // Nouvel identifiant après reconnexion
+                socket.emit('request_progress');
+            }
+        });
+
+        // --- COMMANDES DE L'ADMIN (TÉLÉCOMMANDE) ---
+        function initAdminControls(pseudo) {
+            const btnHide = document.getElementById('btn-hide-qr');
+            const btnShow = document.getElementById('btn-show-qr');
+
+            btnHide.addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'hide_qr' });
+                btnHide.style.display = 'none';
+                btnShow.style.display = 'block';
+            });
+            btnShow.addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'show_qr' });
+                btnShow.style.display = 'none';
+                btnHide.style.display = 'block';
+            });
+
+            document.getElementById('btn-start-cinematic').addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'start_presentation' });
+            });
+
+            document.getElementById('btn-next-point').addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'next_point' });
+            });
+
+            document.getElementById('btn-show-info').addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'show_info' });
+            });
+
+            document.getElementById('btn-validate').addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'validate_level' });
+            });
+
+            document.getElementById('btn-end').addEventListener('click', () => {
+                socket.emit('admin_action', { pseudo: pseudo, action: 'end_presentation' });
+            });
+        }
+    </script>
+</body>
+</html>

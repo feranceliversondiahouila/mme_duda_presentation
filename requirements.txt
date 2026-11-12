@@ -1,0 +1,13 @@
+# Serveur Web et API
+Flask
+
+# Temps réel et WebSockets (Multijoueur)
+Flask-SocketIO
+
+# Génération du QR Code de la salle d'attente
+qrcode[pil]
+
+# --- PRÉPARATION POUR LA SUITE (Biométrie) ---
+# Traitement d'images pour fusionner les 5 photos du visage
+opencv-python
+numpy

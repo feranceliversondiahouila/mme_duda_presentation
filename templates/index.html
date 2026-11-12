@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NETRUNNER - Vidéoprojecteur</title>
+
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/cyberpunk-crt.css">
+
+    <!-- Dépendances PC uniquement : Socket.IO + GSAP (Three.js est importé en module par scene3d.js / scene_datacenter.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Définition des chemins pour Three.js (Import Map) -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- COUCHE 1 : RIDEAU NOIR AVEC QR CODE        -->
+    <!-- (masqué par app.js sur ordre de l'admin)   -->
+    <!-- ========================================== -->
+    <div id="site-qrcode">
+        <h1 class="qr-title">&gt;&gt; REJOIGNEZ LE RÉSEAU</h1>
+        <img src="/static/images/qrcode.png" alt="QR Code de connexion" class="qr-img">
+        <p class="qr-hint">Scannez avec votre smartphone</p>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- COUCHE 2 : LA 3D (cachée au démarrage)     -->
+    <!-- ========================================== -->
+    <div id="site-3d" class="hidden">
+
+        <!-- Canvas WebGL (scene3d.js puis scene_datacenter.js) -->
+        <div id="webgl-container"></div>
+
+        <!-- Bandeau du lobby (compteur de joueurs) -->
+        <div id="lobby-screen">
+            <span>&gt;&gt; LOBBY IUT</span>
+            <span>JOUEURS CONNECTÉS : <strong id="player-count">0</strong></span>
+        </div>
+
+        <!-- Terminal cyberpunk (affiché après le zoom dans l'écran du prof) -->
+        <div id="hud-overlay" class="crt hidden">
+            <div id="terminal-panel">
+                <div id="terminal-output"></div>
+                <div class="input-line">
+                    <span style="color: #00ff66;">root@admin-rt:~#</span>&nbsp;
+                    <span id="auto-typer"></span><span class="cursor"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panneau de slides (explication) -->
+        <div id="presentation-panel" class="hidden">
+            <h2 id="presentation-title">EXPLICATION</h2>
+            <div id="presentation-content">Contenu de la slide...</div>
+        </div>
+
+        <!-- Fenêtre "Voir plus" : s'ouvre quand un joueur clique sur son téléphone -->
+        <div id="poi-modal" class="hidden">
+            <button id="poi-modal-close" aria-label="Fermer">X</button>
+            <h2 id="poi-modal-title"></h2>
+            <p id="poi-modal-text"></p>
+            <p id="poi-modal-by"></p>
+        </div>
+
+        <!-- Animation de victoire (3 étoiles, animées par GSAP dans app.js) -->
+        <div id="victory-screen" class="hidden">
+            <div class="victory-text">NIVEAU VALIDÉ</div>
+            <div class="stars-container">
+                <span class="star">⭐</span>
+                <span class="star">⭐</span>
+                <span class="star">⭐</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aucun code manette / scanner ici : tout arrive via Socket.IO dans app.js -->
+    <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+/* Utilitaires globaux */
+body {
+    margin: 0;
+    overflow: hidden; /* Empêche les barres de défilement sur le vidéoprojecteur */
+    background-color: #050a15;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ========================================== */
+/* STYLES : PANNEAU DE PRÉSENTATION (SLIDES)  */
+/* ========================================== */
+#presentation-panel {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%;
+    background: rgba(10, 15, 25, 0.85);
+    border: 2px solid #00ccff;
+    box-shadow: 0 0 30px rgba(0, 204, 255, 0.5);
+    color: #fff;
+    padding: 30px;
+    z-index: 200;
+    backdrop-filter: blur(8px);
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#presentation-title {
+    color: #00ccff;
+    border-bottom: 1px solid #00ccff;
+    padding-bottom: 10px;
+    margin-top: 0;
+    font-size: 2rem;
+}
+
+#presentation-content {
+    font-size: 1.2rem;
+    line-height: 1.5;
+}
+
+/* ========================================== */
+/* STYLES : FENÊTRE "VOIR PLUS" (ÉQUIPEMENTS) */
+/* ========================================== */
+#poi-modal {
+    position: absolute;
+    top: 50%; right: 40px;
+    transform: translateY(-50%);
+    width: 32%;
+    background: rgba(0, 17, 34, 0.92);
+    border: 2px solid #00ccff;
+    box-shadow: 0 0 30px rgba(0, 204, 255, 0.5);
+    color: #fff;
+    padding: 25px;
+    z-index: 250;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#poi-modal h2 {
+    color: #00ccff;
+    margin: 0 40px 15px 0;
+    border-bottom: 1px solid #00ccff;
+    padding-bottom: 10px;
+}
+
+#poi-modal-text { font-size: 1.2rem; line-height: 1.5; }
+#poi-modal-by { font-size: 0.9rem; color: #ffcc00; margin-bottom: 0; }
+
+#poi-modal-close {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 36px; height: 36px;
+    background: #ff3333;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* ========================================== */
+/* STYLES : ÉCRAN DE VICTOIRE (3 ÉTOILES)     */
+/* ========================================== */
+#victory-screen {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 255, 102, 0.1);
+    z-index: 300;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.victory-text {
+    font-size: 4rem;
+    color: #00ff66;
+    text-shadow: 0 0 30px #00ff66;
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+}
+
+.stars-container {
+    display: flex;
+    gap: 30px;
+}
+
+.star {
+    font-size: 6rem;
+    filter: drop-shadow(0 0 20px gold);
+    /* GSAP va animer ces étoiles depuis app.js */
+}
+
+/* ========================================== */
+/* STYLES : COUCHES DU VIDÉOPROJECTEUR        */
+/* ========================================== */
+
+/* Couche 1 : rideau noir + QR Code */
+#site-qrcode {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Courier New', Courier, monospace;
+    color: #00ff66;
+    text-shadow: 0 0 10px #00ff66;
+}
+
+.qr-img {
+    width: min(45vh, 45vw);
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 0 40px rgba(0, 255, 102, 0.4);
+}
+
+/* Couche 2 : la 3D */
+#site-3d {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+}
+
+#webgl-container {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+}
+
+#lobby-screen {
+    position: absolute;
+    top: 20px; left: 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #00ff66;
+    font-family: 'Courier New', Courier, monospace;
+    text-shadow: 0 0 8px #00ff66;
+}
